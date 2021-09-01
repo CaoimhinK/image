@@ -1,0 +1,18 @@
+.App {
+  display: flex;
+  justify-content: center;
+  flex-wrap: wrap;
+
+}
+
+.filter-image {
+  display: flex;
+  flex: 1;
+  margin: 5px;
+  justify-content: center;
+}
+
+.group {
+  display: flex;
+  flex-direction: column;
+}
