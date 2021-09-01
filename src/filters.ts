@@ -3,10 +3,34 @@ export const HEIGHT = 350
 
 const DIAGONAL = Math.sqrt(2 * (WIDTH * WIDTH + HEIGHT * HEIGHT))
 
-export interface RGBColor {
+export class RGBColor {
   r: number
   g: number
   b: number
+
+  constructor(r: number, g: number, b: number) {
+    this.r = r
+    this.g = g
+    this.b = b
+  }
+
+  toString() {
+    const rString = this.r.toString(16).padStart(2, "0")
+    const gString = this.g.toString(16).padStart(2, "0")
+    const bString = this.b.toString(16).padStart(2, "0")
+    return `#${rString}${gString}${bString}`
+  }
+
+  static fromHex(str: string) {
+    const rString = str.substr(1,2)
+    const gString = str.substr(3,2)
+    const bString = str.substr(5,2)
+    return new RGBColor(
+      parseInt(rString, 16),
+      parseInt(gString, 16),
+      parseInt(bString, 16),
+    )
+  }
 }
 
 export interface FilterOptions {
@@ -24,11 +48,11 @@ export const getColor = (index: number, colors: RGBColor[]): RGBColor => {
   if (colors[index]) {
     return colors[index]
   } else {
-    const newColor = {
-      r: Math.round(Math.random() * 255),
-      g: Math.round(Math.random() * 255),
-      b: Math.round(Math.random() * 255),
-    }
+    const newColor = new RGBColor(
+      Math.round(Math.random() * 255),
+      Math.round(Math.random() * 255),
+      Math.round(Math.random() * 255),
+    )
     colors[index] = newColor
     return newColor
   }
@@ -72,51 +96,48 @@ const wavyCircles: Filter = (x, y, options) => {
     thickness,
     number = 8,
     frequency = 10,
-    phase = 3,
+    phase = 0,
     amplitude = 1,
   } = options
   const dx = x - WIDTH / 2
   const dy = y - HEIGHT / 2
-  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2)
+  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + (phase/360*Math.PI*2)
   const dist = (thickness)
     ? Math.sqrt(dx * dx + dy * dy) / (thickness / 2)
     : Math.sqrt(dx * dx + dy * dy) / (WIDTH / number / 2)
-  const circ = dist + Math.sin(phi * frequency + (phase/360*Math.PI*2)) * dist/10 * amplitude
+  const circ = dist + (Math.sin(phi * frequency) + 1) * dist/10 * amplitude
   return circ
 }
 
 const beams: Filter = (x, y, options) => {
-  const {thickness, number = 16} = options
+  const {thickness, number = 16, phase = 0} = options
   const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + Math.PI
-  const deg = phi / (Math.PI * 2) * 360
+  const deg = phi / (Math.PI * 2) * 360 + phase
   if (thickness) {
-    const num = 360 / (thickness || 16)
-    const beam = num * (deg + (360 / num / 2)) / 360
-    return beam % num
+    return deg / thickness % (360 / thickness)
   } else {
-    const beam = number * (deg + (360 / number / 2)) / 360
-    return beam % number
+    return deg / (360 / number) % number
   }
 }
 
 const wavyBeams: Filter = (x, y, options) => {
-  const {thickness, number = 16} = options
+  const {thickness, number = 16, phase = 0} = options
   const dx = x - WIDTH / 2
   const dy = y - HEIGHT / 2
   const dist = Math.sqrt(dx * dx + dy * dy)
-  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + Math.PI
-  const deg = (phi / (Math.PI * 2) * 360)
+  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2)
+  const deg = (phi / (Math.PI * 2) * 360) + phase
   if (thickness) {
-    const wavy = wave(deg + (360 / thickness), dist, 3, 0.2) / thickness
+    const wavy = wave(deg, dist, 3, 0.2) / thickness
     return wavy % (360 / thickness)
   } else {
-    const wavy = wave(deg + number, dist, 3, 0.2) / (360 / number)
+    const wavy = wave(deg, dist, 3, 0.2) / (360 / number)
     return wavy % number
   }
 }
 
 const wave = (val: number, ref: number, amp = 1, freq = 1, phase = 0) => {
-  const wave = Math.sin(freq * ref + phase) * amp
+  const wave = (Math.sin(freq * ref + phase) + 1) * amp
   return val + wave
 }
 
@@ -193,11 +214,11 @@ const wavyVerticals: Filter = (x, y, options) => {
 }
 
 const spiral: Filter = (x, y, options) => {
-  const {thickness, number = 16} = options
+  const {thickness, number = 16, phase = 0} = options
   const dx = x - WIDTH / 2
   const dy = y - HEIGHT / 2
   const dist = Math.sqrt(dx * dx + dy * dy)
-  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + Math.PI
+  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + Math.PI + (phase/360 * Math.PI * 2)
   const beam = (phi / (Math.PI * 2) * 360)
   if (thickness) {
     const num = 360 / thickness
