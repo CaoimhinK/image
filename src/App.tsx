@@ -8,18 +8,17 @@ import React, {
   MouseEventHandler,
 } from "react"
 
-import Filters, {
+import {
   mapFilters,
-  Filter,
+  FILTERS,
+  type Filter,
   WIDTH,
   HEIGHT,
-  getColor,
-  RGBColor,
-  FilterOptions,
   lerpFilter,
 } from "./filters"
 
 import "./App.css"
+import { getColor, RGBColor } from "./utils"
 
 type ColorContext = [RGBColor[], (colors: RGBColor[]) => void]
 
@@ -29,10 +28,10 @@ const useColors = () => {
   return useContext(ColorContext)
 }
 
-const createImage = (
+const createImage = <O extends object>(
   ctx: CanvasRenderingContext2D,
   filter: Filter,
-  options: FilterOptions,
+  options: O,
   inColors?: RGBColor[],
   lerp?: boolean,
 ) => {
@@ -56,9 +55,9 @@ const createImage = (
   return newColors
 }
 
-const useImage = (
+const useImage = <O extends object>(
   filter: Filter,
-  options: FilterOptions,
+  options: O,
   redraw?: boolean,
   lerp?: boolean,
 ) => {
@@ -78,15 +77,23 @@ const useImage = (
   return ref
 }
 
-const FilterImage: React.FC<{
+interface FilterImageProps<O extends object> {
   filter: Filter
   color?: string
-  options?: FilterOptions
+  options?: O
   redraw?: boolean
   lerp?: boolean
-}> = ({ filter, color, options, redraw, lerp }) => {
+}
+
+const FilterImage = <O extends object>({
+  filter,
+  color,
+  options,
+  redraw,
+  lerp,
+}: FilterImageProps<O>) => {
   const [colors, setColors] = useColors()
-  const ref = useImage(filter, options || {}, redraw, lerp)
+  const ref = useImage(filter, options ?? {}, redraw, lerp)
   const findIndex: MouseEventHandler<HTMLCanvasElement> = useCallback(
     ({ clientX, clientY, currentTarget }) => {
       if (color) {
@@ -118,17 +125,20 @@ interface Constraints {
   step: number
 }
 
-const MinMax: Record<string, Constraints> = {
+const MinMax = {
   number: { min: 1, max: 100, step: 1 },
   phase: { min: 0, max: 360, step: 1 },
+} as const satisfies Record<string, Constraints>
+
+interface OriginInputProps<O extends object> {
+  options: O
+  setOptions: (o: O) => void
 }
 
-interface OriginInputProps {
-  options: FilterOptions
-  setOptions: (o: FilterOptions) => void
-}
-
-const OriginInput: React.FC<OriginInputProps> = ({ options, setOptions }) => {
+const OriginInput = <O extends { origin?: { x: number; y: number } }>({
+  options,
+  setOptions,
+}: OriginInputProps<O>) => {
   const { origin = { x: WIDTH / 2, y: HEIGHT / 2 } } = options
   const updateOrigin: MouseEventHandler<SVGSVGElement> = useCallback(
     ({ clientX, clientY, currentTarget }) => {
@@ -212,16 +222,33 @@ const OriginInput: React.FC<OriginInputProps> = ({ options, setOptions }) => {
   )
 }
 
-const isNumber = (val: FilterOptions[keyof FilterOptions]): val is number => {
+const isNumber = (val: unknown): val is number => {
   return typeof val === "number"
 }
 
-const Option: React.FC<{
-  optionKey: keyof FilterOptions
-  options: FilterOptions
-  setOptions: (o: FilterOptions) => void
-}> = ({ optionKey, options, setOptions }) => {
-  const { min, max, step } = MinMax[optionKey] || { min: 0, max: 30, step: 1 }
+const isMinMaxKey = (key: string): key is MinMaxKey => {
+  return Object.keys(MinMax).some((k) => k === key)
+}
+
+type MinMaxKey = keyof typeof MinMax
+
+type WithMinMaxKeys = { [Key in MinMaxKey]?: unknown }
+type WithOrigin = { origin?: { x: number; y: number } }
+
+interface OptionProps<K extends string, O = Record<K, unknown>> {
+  optionKey: K
+  options: O
+  setOptions: (o: O) => void
+}
+
+const Option = <K extends keyof (WithMinMaxKeys & WithOrigin) | string>({
+  optionKey,
+  options,
+  setOptions,
+}: OptionProps<K>) => {
+  const { min, max, step } = isMinMaxKey(optionKey)
+    ? MinMax[optionKey]
+    : { min: 0, max: 30, step: 1 }
   const onValueChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
       setOptions({
@@ -231,9 +258,9 @@ const Option: React.FC<{
     },
     [options, optionKey, setOptions],
   )
-  const o = options[optionKey as keyof FilterOptions]
+  const o = options[optionKey]
   return (
-    <tr key={optionKey}>
+    <tr key={optionKey.toString()}>
       <td>
         <label>{optionKey}</label>
       </td>
@@ -242,7 +269,7 @@ const Option: React.FC<{
           <td>
             <input
               type="range"
-              name={optionKey}
+              name={optionKey.toString()}
               value={o}
               min={min}
               max={max}
@@ -250,7 +277,7 @@ const Option: React.FC<{
               onChange={onValueChange}
             />
           </td>
-          <td>({options[optionKey as keyof FilterOptions]})</td>
+          <td>{o}</td>
         </>
       ) : (
         <td>
@@ -261,14 +288,17 @@ const Option: React.FC<{
   )
 }
 
+const keys = <Key extends string>(obj: Record<Key, unknown>) =>
+  Object.keys(obj) as Key[]
+
 const SandboxFilters = () => {
   const [sandboxFilter, setSandboxFilter] =
-    useState<keyof typeof Filters>("wavyCircles")
+    useState<keyof typeof FILTERS>("wavyCircles")
   const colorState = useState<RGBColor[]>([])
   const [color, setColor] = useState("#000000")
   const [redraw, setRedraw] = useState(false)
   const [lerp, setLerp] = useState(false)
-  const [options, setOptions] = useState<FilterOptions>({
+  const [options, setOptions] = useState<Record<string, unknown>>({
     number: 16,
     frequency: 5,
     amplitude: 1,
@@ -279,7 +309,7 @@ const SandboxFilters = () => {
     },
   })
   const onChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    setSandboxFilter(e.target.value as keyof typeof Filters)
+    setSandboxFilter(e.target.value as keyof typeof FILTERS)
   }, [])
   const onColorChange = useCallback(
     (e: ChangeEvent<HTMLInputElement>) => {
@@ -298,11 +328,11 @@ const SandboxFilters = () => {
   return (
     <ColorContext.Provider value={colorState}>
       <div className="group">
-        {Object.keys(Filters).map((key) => {
+        {keys(FILTERS).map((key) => {
           return (
             <div
               key={key}
-              onClick={() => setSandboxFilter(key as keyof typeof Filters)}
+              onClick={() => setSandboxFilter(key as keyof typeof FILTERS)}
             >
               <input
                 type="radio"
@@ -318,11 +348,11 @@ const SandboxFilters = () => {
       </div>
       <table style={{ display: "block" }}>
         <tbody>
-          {Object.keys(options).map((key) => {
+          {keys(options).map((key) => {
             return (
               <Option
                 key={key}
-                optionKey={key as keyof FilterOptions}
+                optionKey={key}
                 options={options}
                 setOptions={setOptions}
               />
@@ -341,7 +371,7 @@ const SandboxFilters = () => {
         </tbody>
       </table>
       <FilterImage
-        filter={Filters[sandboxFilter]}
+        filter={FILTERS[sandboxFilter]}
         options={options}
         redraw={redraw}
         color={color}

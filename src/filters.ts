@@ -1,100 +1,20 @@
+import { getColor, RGBColor } from "./utils"
+
 export const WIDTH = 350
 export const HEIGHT = 350
 
 const DIAGONAL = Math.sqrt(2 * (WIDTH * WIDTH + HEIGHT * HEIGHT))
 
-export class RGBColor {
-  r: number
-  g: number
-  b: number
-
-  static black = new RGBColor(0, 0, 0)
-
-  constructor(r: number, g: number, b: number) {
-    this.r = r
-    this.g = g
-    this.b = b
-  }
-
-  toString() {
-    const rString = this.r.toString(16).padStart(2, "0")
-    const gString = this.g.toString(16).padStart(2, "0")
-    const bString = this.b.toString(16).padStart(2, "0")
-    return `#${rString}${gString}${bString}`
-  }
-
-  static fromHex(str: string) {
-    const rString = str.substr(1, 2)
-    const gString = str.substr(3, 2)
-    const bString = str.substr(5, 2)
-    return new RGBColor(
-      parseInt(rString, 16),
-      parseInt(gString, 16),
-      parseInt(bString, 16),
-    )
-  }
-
-  static random() {
-    return new RGBColor(
-      Math.round(Math.random() * 255),
-      Math.round(Math.random() * 255),
-      Math.round(Math.random() * 255),
-    )
-  }
-
-  static add(a: RGBColor, b: RGBColor) {
-    return new RGBColor(a.r + b.r, a.g + b.g, a.b + b.b)
-  }
-
-  static sub(a: RGBColor, b: RGBColor) {
-    return new RGBColor(a.r - b.r, a.g - b.g, a.b - b.b)
-  }
-
-  static mult(a: RGBColor, r: number) {
-    return new RGBColor(a.r * r, a.g * r, a.b * r)
-  }
-}
-
-export interface FilterOptions {
-  origin?: {
-    x: number
-    y: number
-  }
-  number?: number
-  frequency?: number
-  amplitude?: number
-  phase?: number
-}
-
-export type Filter<T extends FilterOptions = FilterOptions> = (
+export type Filter<O extends object = object> = (
   x: number,
   y: number,
-  option: T,
+  options: O,
 ) => number
 
-export const getColor = (
-  index: number,
-  colors: RGBColor[],
-): [RGBColor, RGBColor[]] => {
-  const localColors = colors.concat()
-  index = Math.floor(index)
-  if (colors[index]) {
-    return [colors[index], localColors]
-  } else {
-    const newColor = new RGBColor(
-      Math.round(Math.random() * 255),
-      Math.round(Math.random() * 255),
-      Math.round(Math.random() * 255),
-    )
-    localColors[index] = newColor
-    return [newColor, localColors]
-  }
-}
-
-export const lerpFilter = (
+export const lerpFilter = <O extends { number?: number }>(
   x: number,
   y: number,
-  options: FilterOptions,
+  options: O,
   filter: Filter,
   colors: RGBColor[],
 ): [RGBColor, RGBColor[]] => {
@@ -110,31 +30,31 @@ export const lerpFilter = (
   return [RGBColor.add(c0, RGBColor.mult(RGBColor.sub(c1, c0), t)), newColors1]
 }
 
-export const getLerpColor = (index: number, colors: RGBColor[]): RGBColor => {
-  const index1 = Math.ceil(index)
-  const index2 = Math.floor(index)
-  const t = index % 1
-  const [color1] = getColor(index1, colors)
-  const [color2] = getColor(index2, colors)
-  return {
-    r: color1.r + t * (color2.r - color1.r),
-    g: color1.g + t * (color2.g - color1.g),
-    b: color1.b + t * (color2.b - color1.b),
-  }
-}
-
 export const randomFilter = (x: number, y: number): number => {
   const options = {
     number: 15,
   }
-  const keys = Object.keys(Filters)
+  const keys = Object.keys(FILTERS)
   const index = Math.floor(Math.random() * keys.length)
-  const key = keys[index] as keyof typeof Filters
-  const fn = Filters[key]
+  const key = keys[index] as keyof typeof FILTERS
+  const fn = FILTERS[key]
   return fn(x, y, options)
 }
 
-const wavyCircles: Filter = (x, y, options) => {
+const wave = (val: number, ref: number, amp = 1, freq = 1, phase = 0) => {
+  const wave = (Math.sin(freq * ref + phase) + 1) * amp
+  return val + wave
+}
+
+type WavyCirclesOptions = {
+  origin?: { x: number; y: number }
+  number?: number
+  frequency?: number
+  phase?: number
+  amplitude?: number
+}
+
+const wavyCircles: Filter<WavyCirclesOptions> = (x, y, options) => {
   const {
     origin = { x: WIDTH / 2, y: HEIGHT / 2 },
     number = 8,
@@ -152,7 +72,15 @@ const wavyCircles: Filter = (x, y, options) => {
   return circ
 }
 
-const wavyBeams: Filter = (x, y, options) => {
+type WavyBeamsOptions = {
+  origin?: { x: number; y: number }
+  number?: number
+  frequency?: number
+  amplitude?: number
+  phase?: number
+}
+
+const wavyBeams: Filter<WavyBeamsOptions> = (x, y, options) => {
   const {
     origin = { x: WIDTH / 2, y: HEIGHT / 2 },
     number = 16,
@@ -169,34 +97,41 @@ const wavyBeams: Filter = (x, y, options) => {
   return wavy % number
 }
 
-const wave = (val: number, ref: number, amp = 1, freq = 1, phase = 0) => {
-  const wave = (Math.sin(freq * ref + phase) + 1) * amp
-  return val + wave
+type WavyOptions = {
+  number?: number
+  frequency?: number
+  amplitude?: number
 }
 
-const wavyDiagonalsBT: Filter = (x, y, options) => {
+const wavyDiagonalsBT: Filter<WavyOptions> = (x, y, options) => {
   const { number = 16, frequency = 1, amplitude = 3 } = options
   return wave(x + y, x - y, amplitude, frequency / 10) / (DIAGONAL / number)
 }
 
-const wavyDiagonalsTB: Filter = (x, y, options) => {
+const wavyDiagonalsTB: Filter<WavyOptions> = (x, y, options) => {
   const { number = 16, frequency = 1, amplitude = 3 } = options
   return (
     wave(x - y, x + y, amplitude, frequency / 10) / (DIAGONAL / number) + number
   )
 }
 
-const wavyHorizontals: Filter = (x, y, options) => {
+const wavyHorizontals: Filter<WavyOptions> = (x, y, options) => {
   const { number = 16, frequency = 0.2, amplitude = 5 } = options
   return wave(y, x, amplitude, frequency) / (HEIGHT / number)
 }
 
-const wavyVerticals: Filter = (x, y, options) => {
+const wavyVerticals: Filter<WavyOptions> = (x, y, options) => {
   const { number = 16, frequency = 0.2, amplitude = 5 } = options
   return wave(x, y, amplitude, frequency) / (WIDTH / number)
 }
 
-const spiral: Filter = (x, y, options) => {
+type SpiralOptions = {
+  number?: number
+  frequency?: number
+  phase?: number
+}
+
+const spiral: Filter<SpiralOptions> = (x, y, options) => {
   const { number = 16, frequency = 1, phase = 0 } = options
   const dx = x - WIDTH / 2
   const dy = y - HEIGHT / 2
@@ -209,7 +144,9 @@ const spiral: Filter = (x, y, options) => {
   return (((deg + dist * frequency) * number) / 360) % number
 }
 
-const circlyBeams: Filter = (x, y, options) => {
+type CirclyBeamsOptions = { number?: number }
+
+const circlyBeams: Filter<CirclyBeamsOptions> = (x, y, options) => {
   const { number = 16 } = options
   const dx = x - WIDTH / 2
   const dy = y - HEIGHT / 2
@@ -220,15 +157,7 @@ const circlyBeams: Filter = (x, y, options) => {
   return wavy % number
 }
 
-export const mapFilters = (fn: (filter: Filter, index?: number) => unknown) => {
-  const keys = Object.keys(Filters) as (keyof typeof Filters)[]
-  return keys.map((key, index) => {
-    const filter = Filters[key]
-    return fn(filter, index)
-  })
-}
-
-const Filters = {
+export const FILTERS = {
   wavyCircles,
   wavyBeams,
   wavyDiagonalsBT,
@@ -237,6 +166,15 @@ const Filters = {
   wavyVerticals,
   spiral,
   circlyBeams,
-}
+} as const
 
-export default Filters
+export type FilterType = keyof typeof FILTERS
+
+export const FILTER_KEYS = Object.keys(FILTERS) as FilterType[]
+
+export const mapFilters = (fn: (filter: Filter, index?: number) => unknown) => {
+  return FILTER_KEYS.map((key, index) => {
+    const filter = FILTERS[key]
+    return fn(filter, index)
+  })
+}
