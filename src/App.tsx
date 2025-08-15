@@ -1,10 +1,8 @@
 import React, {
   ChangeEvent,
-  createContext,
   useCallback,
   useState,
   useEffect,
-  useContext,
   MouseEventHandler,
 } from "react"
 
@@ -19,14 +17,7 @@ import {
 
 import "./App.css"
 import { getColor, RGBColor } from "./utils"
-
-type ColorContext = [RGBColor[], (colors: RGBColor[]) => void]
-
-const ColorContext = createContext<ColorContext>([[], () => {}])
-
-const useColors = () => {
-  return useContext(ColorContext)
-}
+import { ColorProvider, useColors } from "./context"
 
 const createImage = <O extends object>(
   ctx: CanvasRenderingContext2D,
@@ -294,7 +285,6 @@ const keys = <Key extends string>(obj: Record<Key, unknown>) =>
 const SandboxFilters = () => {
   const [sandboxFilter, setSandboxFilter] =
     useState<keyof typeof FILTERS>("wavyCircles")
-  const colorState = useState<RGBColor[]>([])
   const [color, setColor] = useState("#000000")
   const [redraw, setRedraw] = useState(false)
   const [lerp, setLerp] = useState(false)
@@ -326,7 +316,7 @@ const SandboxFilters = () => {
     }
   }, [redraw])
   return (
-    <ColorContext.Provider value={colorState}>
+    <ColorProvider>
       <div className="group">
         {keys(FILTERS).map((key) => {
           return (
@@ -380,54 +370,95 @@ const SandboxFilters = () => {
       <div>
         <input type="color" value={color} onChange={onColorChange} />
       </div>
-    </ColorContext.Provider>
+    </ColorProvider>
   )
 }
 
-type mode = "gallery" | "sandbox"
+type Mode = "gallery" | "sandbox"
+
+interface ModeGroupProps {
+  mode: Mode
+  onChangeMode: (mode: Mode) => void
+}
+
+const isMode = (value: string): value is Mode => {
+  return value === "gallery" || value === "sandbox"
+}
+
+const ModeGroup = ({ mode, onChangeMode }: ModeGroupProps) => {
+  const onChange = useCallback(
+    (e: ChangeEvent<HTMLInputElement>) => {
+      const val = e.target.value
+      if (isMode(val)) {
+        onChangeMode(val)
+      }
+    },
+    [onChangeMode],
+  )
+
+  const setGallery = useCallback(() => {
+    onChangeMode("gallery")
+  }, [onChangeMode])
+
+  const setSandbox = useCallback(() => {
+    onChangeMode("sandbox")
+  }, [onChangeMode])
+
+  return (
+    <div className="group">
+      <div onClick={setGallery}>
+        <input
+          type="radio"
+          name="mode"
+          value="gallery"
+          checked={mode === "gallery"}
+          onChange={onChange}
+        />
+        <label>gallery</label>
+      </div>
+      <div onClick={setSandbox}>
+        <input
+          type="radio"
+          name="mode"
+          value="sandbox"
+          checked={mode === "sandbox"}
+          onChange={onChange}
+        />
+        <label>sandbox</label>
+      </div>
+    </div>
+  )
+}
+
+const Gallery = () => {
+  return (
+    <>
+      {mapFilters((filter, index) => (
+        <FilterImage key={index} filter={filter} options={{ number: 16 }} />
+      ))}
+      {mapFilters((filter, index) => (
+        <FilterImage
+          key={index}
+          filter={filter}
+          options={{ number: 16 }}
+          lerp
+        />
+      ))}
+    </>
+  )
+}
 
 function App() {
-  const [mode, setMode] = useState<mode>("sandbox")
-  const onChange = useCallback((e: ChangeEvent<HTMLInputElement>) => {
-    setMode(e.target.value as mode)
+  const [mode, setMode] = useState<Mode>("sandbox")
+
+  const onChange = useCallback((mode: Mode) => {
+    setMode(mode)
   }, [])
+
   return (
     <div className="App">
-      <div className="group">
-        <div onClick={() => setMode("gallery")}>
-          <input
-            type="radio"
-            name="mode"
-            value="gallery"
-            checked={mode === "gallery"}
-            onChange={onChange}
-          />
-          <label>gallery</label>
-        </div>
-        <div onClick={() => setMode("sandbox")}>
-          <input
-            type="radio"
-            name="mode"
-            value="sandbox"
-            checked={mode === "sandbox"}
-            onChange={onChange}
-          />
-          <label>sandbox</label>
-        </div>
-      </div>
-      {mode === "gallery" &&
-        mapFilters((filter, index) => (
-          <FilterImage key={index} filter={filter} options={{ number: 16 }} />
-        ))}
-      {mode === "gallery" &&
-        mapFilters((filter, index) => (
-          <FilterImage
-            key={index}
-            filter={filter}
-            options={{ number: 16 }}
-            lerp
-          />
-        ))}
+      <ModeGroup mode={mode} onChangeMode={onChange} />
+      {mode === "gallery" && <Gallery />}
       {mode === "sandbox" && <SandboxFilters />}
     </div>
   )
