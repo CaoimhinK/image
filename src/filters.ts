@@ -126,32 +126,36 @@ const wavyVerticals: Filter<WavyOptions> = (x, y, options) => {
 }
 
 type SpiralOptions = {
+  origin?: { x: number; y: number }
   number?: number
   frequency?: number
   phase?: number
 }
 
 const spiral: Filter<SpiralOptions> = (x, y, options) => {
-  const { number = 16, frequency = 1, phase = 0 } = options
-  const dx = x - WIDTH / 2
-  const dy = y - HEIGHT / 2
+  const {
+    origin = { x: WIDTH / 2, y: HEIGHT / 2 },
+    number = 16,
+    frequency = 1,
+    phase = 0,
+  } = options
+
+  const dx = x - origin.x
+  const dy = y - origin.y
   const dist = Math.sqrt(dx * dx + dy * dy)
-  const phi =
-    Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) +
-    Math.PI +
-    (phase / 360) * Math.PI * 2
+  const phi = Math.atan2(dx, dy) + Math.PI + (phase / 360) * Math.PI * 2
   const deg = (phi / (Math.PI * 2)) * 360
   return (((deg + dist * frequency) * number) / 360) % number
 }
 
-type CirclyBeamsOptions = { number?: number }
+type CirclyBeamsOptions = { origin?: { x: number; y: number }; number?: number }
 
 const circlyBeams: Filter<CirclyBeamsOptions> = (x, y, options) => {
-  const { number = 16 } = options
-  const dx = x - WIDTH / 2
+  const { origin = { x: WIDTH / 2, y: HEIGHT / 2 }, number = 16 } = options
+  const dx = x - origin.x
   const dy = y - HEIGHT / 2
   const dist = Math.sqrt(dx * dx + dy * dy)
-  const phi = Math.atan2(x - WIDTH / 2, y - HEIGHT / 2) + Math.PI
+  const phi = Math.atan2(dx, dy) + Math.PI
   const deg = (phi / (Math.PI * 2)) * 360
   const wavy = wave(deg + number, dist * dist, 10, 0.2) / (360 / number)
   return wavy % number
