@@ -1,8 +1,8 @@
-import globals from "globals"
-import pluginJs from "@eslint/js"
-import tseslint from "typescript-eslint"
-import pluginReact from "eslint-plugin-react"
-import pluginPrettierRecommended from "eslint-plugin-prettier/recommended"
+import globals from "globals";
+import pluginJs from "@eslint/js";
+import tseslint from "typescript-eslint";
+import pluginReact from "eslint-plugin-react";
+import pluginPrettierRecommended from "eslint-plugin-prettier/recommended";
 
 /** @type {import('eslint').Linter.Config[]} */
 export default [
@@ -23,6 +23,7 @@ export default [
           singleQuote: false,
         },
       ],
+      "@typescript-eslint/no-empty-object-type": "off",
     },
   },
-]
+];
